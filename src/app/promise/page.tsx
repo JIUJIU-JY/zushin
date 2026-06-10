@@ -1,5 +1,5 @@
 'use client'
-
+import { supabase } from '@/lib/supabase'
 import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Lock } from 'lucide-react'
@@ -21,21 +21,32 @@ export default function PromisePage() {
     )
   }
 
-  async function handleSave() {
-    if (!content.trim()) {
-      setToast('请输入承诺内容')
-      setTimeout(() => setToast(''), 2000)
-      return
-    }
-    setSaving(true)
-    await new Promise((r) => setTimeout(r, 1000))
-    setSaving(false)
-    setToast('记录已保存')
+ async function handleSave() {
+  if (!content.trim()) {
+    setToast('请输入承诺内容')
     setTimeout(() => setToast(''), 2000)
+    return
+  }
+  setSaving(true)
+  const { error } = await supabase.from('promise_records').insert({
+    person_type: personType,
+    content: content,
+    input_type: inputType,
+    tags: selectedTags.join(','),
+    note: note,
+    is_favorite: false,
+  })
+  setSaving(false)
+  if (error) {
+    setToast('保存失败，请稍后重试')
+  } else {
+    setToast('记录已保存')
     setContent('')
     setSelectedTags([])
     setNote('')
   }
+  setTimeout(() => setToast(''), 2000)
+}
 
   const personTypes = [
     { value: 'landlord', label: '房东' },
