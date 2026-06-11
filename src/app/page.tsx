@@ -1,8 +1,59 @@
 import Link from 'next/link'
 import { Bell, User, FileText, Mic, Star, ChevronRight } from 'lucide-react'
-import { mockRecords } from '@/lib/mock-data'
+import { supabase } from '@/lib/supabase'
 
-export default function HomePage() {
+// 让首页每次都读最新数据，避免生产环境被静态缓存导致"新增了却不更新"
+export const dynamic = 'force-dynamic'
+
+type RecentRecord = {
+  id: string
+  type: 'contract_check' | 'promise_record' | 'agent_communication'
+  title: string
+  createdAt: string
+  createdAtRaw: string
+  riskLevel?: 'high' | 'medium' | 'low'
+}
+
+async function getRecentRecords(): Promise<RecentRecord[]> {
+  const [promisesRes, contractsRes] = await Promise.all([
+    supabase.from('promise_records').select('*').order('created_at', { ascending: false }),
+    supabase.from('contract_checks').select('*').order('created_at', { ascending: false }),
+  ])
+
+  if (promisesRes.error) console.error('读取承诺记录失败:', promisesRes.error)
+  if (contractsRes.error) console.error('读取合同体检失败:', contractsRes.error)
+
+  const promiseItems: RecentRecord[] = (promisesRes.data || []).map((row) => {
+    const tags = row.tags ? row.tags.split(',').filter(Boolean) : []
+    const isAgent = row.person_type === 'agent'
+    const personLabel = row.person_type === 'landlord' ? '房东承诺' : isAgent ? '中介沟通' : '其他记录'
+    return {
+      id: `promise-${row.id}`,
+      type: isAgent ? 'agent_communication' : 'promise_record',
+      title: tags.length > 0 ? `${personLabel} - ${tags[0]}` : personLabel,
+      createdAt: new Date(row.created_at).toLocaleString(),
+      createdAtRaw: row.created_at,
+    }
+  })
+
+  const contractItems: RecentRecord[] = (contractsRes.data || []).map((row) => ({
+    id: `contract-${row.id}`,
+    type: 'contract_check',
+    title: `合同体检 - ${row.file_name}`,
+    createdAt: new Date(row.created_at).toLocaleString(),
+    createdAtRaw: row.created_at,
+    riskLevel: row.risk_level,
+  }))
+
+  // 用原始时间戳排序更可靠，再取最近 3 条
+  return [...promiseItems, ...contractItems]
+    .sort((a, b) => new Date(b.createdAtRaw).getTime() - new Date(a.createdAtRaw).getTime())
+    .slice(0, 3)
+}
+
+export default async function HomePage() {
+  const recentRecords = await getRecentRecords()
+
   return (
     <div className="pb-20 px-4">
       {/* 顶部导航 */}
@@ -82,29 +133,38 @@ export default function HomePage() {
           <Link href="/records" className="text-sm text-indigo-600">全部</Link>
         </div>
         <div className="space-y-2">
-          {mockRecords.slice(0, 3).map((record) => (
-            <div key={record.id} className="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  record.type === 'contract_check' ? 'bg-indigo-100' :
-                  record.type === 'promise_record' ? 'bg-green-100' : 'bg-orange-100'
-                }`}>
-                  {record.type === 'contract_check' ? <FileText size={14} className="text-indigo-600" /> :
-                   record.type === 'promise_record' ? <Mic size={14} className="text-green-600" /> :
-                   <User size={14} className="text-orange-600" />}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">{record.title}</p>
-                  <p className="text-xs text-gray-400">{record.createdAt}</p>
-                </div>
-              </div>
-              {record.riskLevel === 'high' && (
-                <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">高风险</span>
-              )}
+          {recentRecords.length === 0 ? (
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
+              <p className="text-sm text-gray-400">暂无记录</p>
+              <p className="text-xs text-gray-300 mt-1">去做一次合同体检，或记录一条承诺吧</p>
             </div>
-          ))}
+          ) : (
+            recentRecords.map((record, i) => (
+              <Link key={`${record.id}-${i}`} href={`/records/${record.id}`} className="block">
+                <div className="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm active:scale-[0.99] transition-transform">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      record.type === 'contract_check' ? 'bg-indigo-100' :
+                      record.type === 'promise_record' ? 'bg-green-100' : 'bg-orange-100'
+                    }`}>
+                      {record.type === 'contract_check' ? <FileText size={14} className="text-indigo-600" /> :
+                       record.type === 'promise_record' ? <Mic size={14} className="text-green-600" /> :
+                       <User size={14} className="text-orange-600" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">{record.title}</p>
+                      <p className="text-xs text-gray-400">{record.createdAt}</p>
+                    </div>
+                  </div>
+                  {record.riskLevel === 'high' && (
+                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">高风险</span>
+                  )}
+                </div>
+              </Link>
+            ))
+          )}
         </div>
       </div>
-    </div>
+      </div>
   )
 }
