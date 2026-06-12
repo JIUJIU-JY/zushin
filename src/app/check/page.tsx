@@ -168,7 +168,7 @@ export default function CheckPage() {
           <ArrowLeft size={20} className="text-gray-600" />
         </Link>
         <h1 className="font-semibold text-gray-900">合同体检</h1>
-        <span className="text-sm text-indigo-600">历史记录</span>
+        <Link href="/records" className="text-sm text-indigo-600">历史记录</Link>
       </div>
 
       <div className="px-4 space-y-4">

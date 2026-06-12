@@ -83,7 +83,17 @@ export default function RecordsPage() {
   useEffect(() => {
     fetchRecords()
   }, [])
-
+// 从网址参数读取初始筛选（从"我的"页统计卡片跳转过来时用）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    if (tab === 'contract_check' || tab === 'promise_record') {
+      setActiveTab(tab)
+    }
+    if (params.get('fav') === '1') {
+      setFilterFavoriteOnly(true)
+    }
+  }, [])
   function toggleFilterTag(tag: string) {
     setFilterTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
