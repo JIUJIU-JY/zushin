@@ -7,6 +7,34 @@ import { RiskLevel, RiskItem } from '@/lib/types'
 import { supabase } from '@/lib/supabase'
 import { useEffect } from 'react'
 
+async function extractPdfText(file: File): Promise<string> {
+  const pdfjsLib = await import('pdfjs-dist')
+  // 用与所装版本匹配的 worker（从 CDN 加载，避免打包器配置麻烦）
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+
+  let fullText = ''
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    const pageText = content.items
+      .map((item: any) => ('str' in item ? item.str : ''))
+      .join(' ')
+    fullText += pageText + '\n'
+  }
+  return fullText.trim()
+}
+
+async function extractDocxText(file: File): Promise<string> {
+  const mod = await import('mammoth')
+  const mammoth = (mod as any).default || mod
+  const arrayBuffer = await file.arrayBuffer()
+  const result = await mammoth.extractRawText({ arrayBuffer })
+  return result.value.trim()
+}
 type AnalysisResult = {
   riskLevel: RiskLevel
   summary: string
@@ -22,8 +50,9 @@ export default function CheckPage() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [extracting, setExtracting] = useState(false)
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
 
@@ -35,13 +64,32 @@ export default function CheckPage() {
     setFile(f)
     setError('')
 
-    // 第一版：只支持纯文本文件自动读取内容，其他格式需手动粘贴
-    if (f.type === 'text/plain') {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setContractText((e.target?.result as string) || '')
+    const name = f.name.toLowerCase()
+
+    try {
+      if (f.type === 'text/plain' || name.endsWith('.txt')) {
+        setContractText(await f.text())
+      } else if (name.endsWith('.pdf')) {
+        setExtracting(true)
+        const text = await extractPdfText(f)
+        if (text.trim()) {
+          setContractText(text)
+        } else {
+          setError('这个 PDF 像是扫描件/图片，提取不到文字，请手动粘贴合同文本')
+        }
+      } else if (name.endsWith('.docx')) {
+        setExtracting(true)
+        setContractText(await extractDocxText(f))
+      } else if (name.endsWith('.doc')) {
+        setError('暂不支持旧版 .doc，请用 Word 另存为 .docx 或 PDF，或手动粘贴文本')
+      } else {
+        setError('该格式暂不支持自动提取，请手动粘贴合同文本')
       }
-      reader.readAsText(f)
+    } catch (err) {
+      console.error('提取文件文本失败:', err)
+      setError('文件内容提取失败，请尝试手动粘贴文本')
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -158,12 +206,15 @@ export default function CheckPage() {
           <h2 className="font-medium text-gray-900 mb-3">合同文本内容</h2>
           <textarea
             className="w-full border border-gray-200 rounded-2xl p-3 text-sm resize-none bg-white h-40"
-            placeholder="请粘贴合同的文字内容，AI 将基于这段文字进行风险分析。&#10;（暂不支持自动提取 PDF/图片/Word 内容，请手动复制粘贴）"
+            placeholder="粘贴合同文字，或在上方上传 PDF / Word / 纯文本，自动提取内容。（图片暂不支持自动提取，请手动粘贴）"
             value={contractText}
             onChange={(e) => setContractText(e.target.value)}
           />
         </div>
 
+        {extracting && (
+          <p className="text-xs text-indigo-500 mt-2">正在从文件中提取文字，请稍候...</p>
+        )}
         {error && (
           <p className="text-sm text-red-500 text-center">{error}</p>
         )}
