@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Bell, User, FileText, Mic, Star, ChevronRight } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 // 让首页每次都读最新数据，避免生产环境被静态缓存导致"新增了却不更新"
 export const dynamic = 'force-dynamic'
@@ -15,6 +15,7 @@ type RecentRecord = {
 }
 
 async function getRecentRecords(): Promise<RecentRecord[]> {
+  const supabase = await createClient()
   const [promisesRes, contractsRes] = await Promise.all([
     supabase.from('promise_records').select('*').order('created_at', { ascending: false }),
     supabase.from('contract_checks').select('*').order('created_at', { ascending: false }),

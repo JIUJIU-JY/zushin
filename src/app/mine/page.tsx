@@ -1,11 +1,13 @@
 import Link from 'next/link'
-import { User, Settings, Shield, FileText, HelpCircle, ChevronRight } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { User, Settings, Shield, FileText, HelpCircle, ChevronRight, LogIn } from 'lucide-react'
+import { createClient } from '@/lib/supabase-server'
+import LogoutButton from './LogoutButton'
 
 export const dynamic = 'force-dynamic'
 
 async function getStats() {
-  const [contracts, promises, favContracts, favPromises] = await Promise.all([
+    const supabase = await createClient()
+    const [contracts, promises, favContracts, favPromises] = await Promise.all([
     supabase.from('contract_checks').select('*', { count: 'exact', head: true }),
     supabase.from('promise_records').select('*', { count: 'exact', head: true }),
     supabase.from('contract_checks').select('*', { count: 'exact', head: true }).eq('is_favorite', true),
@@ -20,6 +22,9 @@ async function getStats() {
 
 export default async function MinePage() {
   const { contractCount, promiseCount, favoriteCount } = await getStats()
+
+  const supabaseServer = await createClient()
+  const { data: { user } } = await supabaseServer.auth.getUser()
 
   const stats = [
     { label: '合同体检', value: contractCount, href: '/records?tab=contract_check' },
@@ -42,16 +47,25 @@ export default async function MinePage() {
       </div>
 
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 mb-6 text-white flex items-center gap-4">
-        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
+        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center shrink-0">
           <User size={28} className="text-white" />
         </div>
-        <div>
-          <p className="font-bold text-lg">租房用户</p>
-          <p className="text-indigo-100 text-sm">租房路上，不再一个人</p>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-lg truncate">{user ? user.email : '未登录'}</p>
+          <p className="text-indigo-100 text-sm">租房路上,不再一个人</p>
         </div>
+        {user ? (
+          <LogoutButton />
+        ) : (
+          <Link
+            href="/login"
+            className="shrink-0 bg-white/20 rounded-full px-3 py-2 text-sm font-medium flex items-center gap-1"
+          >
+            <LogIn size={16} /> 登录
+          </Link>
+        )}
       </div>
 
-      {/* 统计：点击跳到对应筛选的记录 */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {stats.map(({ label, value, href }) => (
           <Link
@@ -65,7 +79,6 @@ export default async function MinePage() {
         ))}
       </div>
 
-      {/* 菜单 */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         {menuItems.map(({ icon: Icon, label, desc, href, soon }, index) => {
           const row = (
@@ -98,7 +111,7 @@ export default async function MinePage() {
         })}
       </div>
 
-      <p className="text-center text-xs text-gray-300 mt-8">租信 v0.1 · 租房路上，不再一个人</p>
+      <p className="text-center text-xs text-gray-300 mt-8">租信 v0.1 · 租房路上,不再一个人</p>
     </div>
   )
 }

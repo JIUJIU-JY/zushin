@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowLeft, FileText, Mic, User, Shield, AlertTriangle } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +19,7 @@ const riskBadge: Record<RiskLevel, string> = {
 }
 
 async function getRecord(id: string) {
+    const supabase = await createClient()
   if (id.startsWith('contract-')) {
     const realId = id.replace('contract-', '')
     const { data, error } = await supabase
