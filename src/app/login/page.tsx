@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,8 +35,8 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       }
-      router.push('/mine')
-      router.refresh()
+      // 整页跳转:带着新登录状态加载,并清掉路由缓存里残留的"未登录跳转"
+      window.location.href = '/mine'
     } catch (err) {
       setError(translateError(err instanceof Error ? err.message : '出错了,请重试'))
       setLoading(false)
