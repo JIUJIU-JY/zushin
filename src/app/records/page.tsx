@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, SlidersHorizontal, Star, MoreHorizontal,
-  Plus, FileText, Mic, User, X, Inbox
+  Plus, FileText, Mic, User, X, Inbox,Trash2
 } from 'lucide-react'
 import { RecordItem, RecordType, RiskLevel } from '@/lib/types'
 import { supabase } from '@/lib/supabase'
@@ -32,6 +32,7 @@ export default function RecordsPage() {
 
   // 筛选面板
   const [showFilter, setShowFilter] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<RecordItem | null>(null)
   const [filterRisk, setFilterRisk] = useState<RiskLevel | null>(null)
   const [filterTags, setFilterTags] = useState<string[]>([])
   const [filterFavoriteOnly, setFilterFavoriteOnly] = useState(false)
@@ -158,7 +159,28 @@ export default function RecordsPage() {
       )
     }
   }
+    async function handleDelete(record: RecordItem) {
+    const id = record.id
+    let error = null
 
+   if (id.startsWith('contract-')) {
+    const realId = id.replace('contract-', '')
+    const res = await supabase.from('contract_checks').delete().eq('id', realId)
+    error = res.error
+  } else if (id.startsWith('promise-')) {
+    const realId = id.replace('promise-', '')
+    const res = await supabase.from('promise_records').delete().eq('id', realId)
+    error = res.error
+  }
+
+  if (error) {
+    alert('删除失败,请重试')
+    return
+  }
+
+  setRecords((prev) => prev.filter((r) => r.id !== id))
+  setDeleteTarget(null)
+}
   function handleCardClick(record: RecordItem) {
   router.push(`/records/${record.id}`)
     }
@@ -316,10 +338,10 @@ export default function RecordsPage() {
                       />
                     </button>
                     <button
-                      onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(record) }}
                       className="p-1 -m-1"
-                    >
-                      <MoreHorizontal size={16} className="text-gray-300" />
+>
+                     <MoreHorizontal size={16} className="text-gray-300" />
                     </button>
                   </div>
                 </div>
@@ -452,6 +474,39 @@ export default function RecordsPage() {
           </div>
         </div>
       )}
+      {/* 删除确认 */}
+              {deleteTarget && (
+         <div className="fixed inset-0 z-[70] flex items-end justify-center">
+         <div
+          className="absolute inset-0 bg-black/30"
+          onClick={() => setDeleteTarget(null)}
+           />
+          <div className="relative w-full max-w-[390px] bg-white rounded-t-3xl p-5 pb-10">
+          <div className="text-center mb-5">
+          <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+          <Trash2 size={22} className="text-red-500" />
+        </div>
+        <p className="font-semibold text-gray-900">删除这条记录?</p>
+        <p className="text-sm text-gray-400 mt-1 truncate px-4">{deleteTarget.title}</p>
+        <p className="text-xs text-gray-300 mt-1">删除后无法恢复</p>
+        </div>
+        <div className="flex gap-3">
+         <button
+          onClick={() => setDeleteTarget(null)}
+          className="flex-1 py-3 rounded-2xl border border-gray-200 text-gray-600 text-sm font-medium"
+        >
+          取消
+        </button>
+        <button
+          onClick={() => handleDelete(deleteTarget)}
+          className="flex-1 py-3 rounded-2xl bg-red-500 text-white text-sm font-medium"
+        >
+          删除
+        </button>
+      </div>
+    </div>
+  </div>
+         )}
     </div>
   )
 }
