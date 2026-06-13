@@ -13,6 +13,7 @@ const tabs = [
 
 export default function BottomTabBar() {
   const pathname = usePathname()
+  if (pathname === '/login') return null
 
   return (
     <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[390px] bg-white border-t border-gray-100 z-50">
