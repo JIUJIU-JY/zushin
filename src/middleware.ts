@@ -27,10 +27,17 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 未登录 → 除了登录页本身,其余一律跳转到 /login
+  // 是否带着登录凭据(Supabase 的 sb- 开头 cookie)
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith('sb-') && c.value)
+
   const path = request.nextUrl.pathname
   const isPublic = path.startsWith('/login') || path.startsWith('/auth')
-  if (!user && !isPublic) {
+
+  // 只有"既没读到用户、又根本没有登录凭据"时才弹去登录。
+  // 带着 sb- cookie 却这次没读到(令牌刷新的瞬时抖动)→ 放行,避免误弹。
+  if (!user && !hasAuthCookie && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
