@@ -130,16 +130,29 @@ export default function CheckPage() {
   async function handleSaveResult() {
     if (!result) return
     setSaving(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSaving(false)
+      setError('请先登录再保存')
+      return
+    }
+
     const { error } = await supabase.from('contract_checks').insert({
       file_name: result.fileName || '合同文本',
       risk_level: result.riskLevel,
       summary: result.summary,
       risks: result.risks,
+      user_id: user.id,
     })
+
     setSaving(false)
-    if (!error) {
-      setSaved(true)
+    if (error) {
+      console.error('保存失败:', error)
+      setError('保存失败:' + error.message)
+      return
     }
+    setSaved(true)
   }
 
   const riskColors: Record<RiskLevel, string> = {

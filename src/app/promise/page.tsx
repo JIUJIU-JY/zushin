@@ -14,6 +14,7 @@ export default function PromisePage() {
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [error, setError] = useState('')
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -27,24 +28,35 @@ export default function PromisePage() {
     setTimeout(() => setToast(''), 2000)
     return
   }
+  setError('')
   setSaving(true)
-  const { error } = await supabase.from('promise_records').insert({
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    setSaving(false)
+    setError('请先登录再保存')
+    return
+  }
+
+  const { error: saveError } = await supabase.from('promise_records').insert({
     person_type: personType,
     content: content,
     input_type: inputType,
     tags: selectedTags.join(','),
     note: note,
     is_favorite: false,
+    user_id: user.id,
   })
   setSaving(false)
-  if (error) {
-    setToast('保存失败，请稍后重试')
-  } else {
-    setToast('记录已保存')
-    setContent('')
-    setSelectedTags([])
-    setNote('')
+  if (saveError) {
+    console.error('保存失败:', saveError)
+    setError('保存失败:' + saveError.message)
+    return
   }
+  setToast('记录已保存')
+  setContent('')
+  setSelectedTags([])
+  setNote('')
   setTimeout(() => setToast(''), 2000)
 }
 
@@ -163,6 +175,11 @@ export default function PromisePage() {
             <span className="absolute bottom-2 right-3 text-xs text-gray-400">{note.length}/200</span>
           </div>
         </div>
+
+        {/* 错误提示 */}
+        {error && (
+          <p className="text-sm text-red-500 text-center">{error}</p>
+        )}
 
         {/* 保存按钮 */}
         <button
