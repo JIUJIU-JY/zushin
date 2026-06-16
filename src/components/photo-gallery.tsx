@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 
-export default function PhotoGallery({ urls }: { urls: string[] }) {
+export default function PhotoGallery({ urls, title = '证据照片' }: { urls: string[]; title?: string }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const isOpen = activeIndex !== null
 
@@ -19,7 +19,7 @@ export default function PhotoGallery({ urls }: { urls: string[] }) {
 
   return (
     <div>
-      <h3 className="font-medium text-gray-900 mb-3">证据照片（{urls.length}）</h3>
+      <h3 className="font-medium text-gray-900 mb-3">{title}（{urls.length}）</h3>
       <div className="grid grid-cols-3 gap-2">
         {urls.map((url, i) => (
           <button

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Bell, User, FileText, Mic, Star, ChevronRight } from 'lucide-react'
+import { Bell, User, FileText, Mic, Star, ChevronRight, Home } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 
 // 让首页每次都读最新数据，避免生产环境被静态缓存导致"新增了却不更新"
@@ -105,6 +105,21 @@ export default async function HomePage() {
               <div>
                 <p className="font-semibold text-gray-900">记录承诺</p>
                 <p className="text-xs text-gray-500">把口头承诺，变成可追溯的记录</p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-gray-400" />
+          </div>
+        </Link>
+
+        <Link href="/house">
+          <div className="bg-gradient-to-r from-sky-50 to-cyan-50 border border-sky-100 rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center">
+                <Home size={20} className="text-sky-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">房屋档案</p>
+                <p className="text-xs text-gray-500">拍下房屋现状，留作日后凭证</p>
               </div>
             </div>
             <ChevronRight size={18} className="text-gray-400" />
