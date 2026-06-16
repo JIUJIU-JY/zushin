@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { User, Settings, Shield, FileText, HelpCircle, ChevronRight, LogIn } from 'lucide-react'
+import { User, Settings, Shield, FileText, HelpCircle, ChevronRight, LogIn, KeyRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import LogoutButton from './LogoutButton'
 
@@ -34,9 +34,10 @@ export default async function MinePage() {
 
   const menuItems = [
     { icon: FileText, label: '我的合同', desc: '查看所有合同体检记录', href: '/records', soon: false },
-    { icon: Shield, label: '隐私设置', desc: '管理你的数据和隐私', soon: true },
+    { icon: KeyRound, label: '修改密码', desc: '设置新的登录密码', href: '/settings/password', soon: false },
+    { icon: Shield, label: '隐私说明', desc: '了解我们如何保护你的数据', href: '/privacy', soon: false },
+    { icon: HelpCircle, label: '关于与帮助', desc: '产品介绍与常见问题', href: '/about', soon: false },
     { icon: Settings, label: '通用设置', desc: '语言、通知等设置', soon: true },
-    { icon: HelpCircle, label: '帮助与反馈', desc: '常见问题和意见反馈', soon: true },
   ]
 
   return (
