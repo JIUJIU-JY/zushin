@@ -12,6 +12,27 @@ export interface RiskItem {
   suggestion: string
 }
 
+export interface ContractFinding {
+  category: string
+  riskLevel: '高' | '中' | '低'
+  originalText: string
+  explanation: string
+  suggestion: string
+  confidence: '高' | '中' | '低'
+}
+
+export interface MissingClause {
+  topic: string
+  note: string
+}
+
+export interface ContractReport {
+  overallRisk: '高' | '中' | '低'
+  summary: string
+  findings: ContractFinding[]
+  missingClauses: MissingClause[]
+}
+
 export interface ContractCheck {
   id: string
   fileName: string
