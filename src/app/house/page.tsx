@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ImagePlus, X, Trash2, Lock, FileText, Mic, User } from 'lucide-react'
 import { RiskLevel } from '@/lib/types'
+import { uploadEvidencePhotos } from '@/lib/upload-evidence'
 import PhotoGallery from '@/components/photo-gallery'
 
 const MAX_PHOTOS = 9
@@ -161,19 +162,15 @@ export default function HousePage() {
       return
     }
 
-    // 逐张上传照片到 evidence 桶，收集成功上传的路径
-    const photoPaths: string[] = []
-    for (const file of photos) {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('evidence').upload(path, file)
-      if (uploadError) {
-        setSaving(false)
-        console.error('图片上传失败:', uploadError)
-        setError('图片上传失败:' + uploadError.message)
-        return
-      }
-      photoPaths.push(path)
+    // 压缩并上传照片，收集成功上传的路径
+    let photoPaths: string[] = []
+    try {
+      photoPaths = await uploadEvidencePhotos(photos, user.id)
+    } catch (err) {
+      setSaving(false)
+      console.error(err)
+      setError(err instanceof Error ? err.message : '图片上传失败')
+      return
     }
 
     const { error: saveError } = await supabase.from('house_records').insert({
