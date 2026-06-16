@@ -2,9 +2,11 @@
 import { supabase } from '@/lib/supabase'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, Lock } from 'lucide-react'
 
 export default function PasswordPage() {
+  const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
@@ -34,7 +36,10 @@ export default function PasswordPage() {
     setToast('密码已修改')
     setPassword('')
     setConfirm('')
-    setTimeout(() => setToast(''), 2000)
+    setTimeout(() => {
+      setToast('')
+      router.push('/mine')
+    }, 1500)
   }
 
   return (

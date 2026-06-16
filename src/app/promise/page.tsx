@@ -129,7 +129,7 @@ export default function PromisePage() {
 
       {/* 顶部导航 */}
       <div className="flex items-center justify-between px-4 py-4">
-        <Link href="/">
+        <Link href="/records">
           <ArrowLeft size={20} className="text-gray-600" />
         </Link>
         <h1 className="font-semibold text-gray-900">记录承诺</h1>
@@ -269,6 +269,12 @@ export default function PromisePage() {
         >
           {saving ? '保存中...' : '保存记录'}
         </button>
+
+        {toast === '记录已保存' && (
+          <Link href="/records" className="block text-center text-sm text-indigo-600 font-medium">
+            去看看记录 →
+          </Link>
+        )}
 
         {/* 安全提示 */}
         <div className="flex items-center justify-center gap-2 text-xs text-gray-400 pb-4">
