@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft, FileText, Mic, User, Shield, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import PhotoGallery from '@/components/photo-gallery'
+import ContractReportExport from '@/components/contract-report-export'
 
 export const dynamic = 'force-dynamic'
 
@@ -131,6 +132,14 @@ function ContractDetail({ row }: { row: any }) {
           </div>
         </div>
       )}
+
+      <ContractReportExport
+        fileName={row.file_name}
+        createdAt={row.created_at}
+        riskLevel={level}
+        summary={row.summary}
+        risks={risks}
+      />
 
       <p className="text-xs text-gray-400 text-center pt-2">
         AI 分析仅供参考，不构成法律意见。如涉及重大纠纷，请咨询专业律师。
