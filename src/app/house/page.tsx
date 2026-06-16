@@ -2,7 +2,8 @@
 import { supabase } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ImagePlus, X, Trash2, Lock } from 'lucide-react'
+import { ArrowLeft, ImagePlus, X, Trash2, Lock, FileText, Mic, User } from 'lucide-react'
+import { RiskLevel } from '@/lib/types'
 import PhotoGallery from '@/components/photo-gallery'
 
 const MAX_PHOTOS = 9
@@ -15,6 +16,30 @@ type HouseRecord = {
   photoUrls: string[]
 }
 
+type ContractSummary = {
+  id: string
+  fileName: string
+  riskLevel: RiskLevel
+  createdAt: string
+}
+
+type PromiseSummary = {
+  id: string
+  personType: string
+  content: string
+  createdAt: string
+}
+
+// 与 records 页保持一致的风险标签与对方标签
+const riskLabel = (level: RiskLevel) => {
+  if (level === 'high') return { text: '高风险', color: 'bg-red-100 text-red-600' }
+  if (level === 'medium') return { text: '中风险', color: 'bg-orange-100 text-orange-600' }
+  return { text: '低风险', color: 'bg-green-100 text-green-600' }
+}
+
+const personLabel = (personType: string) =>
+  personType === 'landlord' ? '房东承诺' : personType === 'agent' ? '中介沟通' : '其他记录'
+
 export default function HousePage() {
   const [photos, setPhotos] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
@@ -23,6 +48,8 @@ export default function HousePage() {
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [records, setRecords] = useState<HouseRecord[]>([])
+  const [contracts, setContracts] = useState<ContractSummary[]>([])
+  const [promises, setPromises] = useState<PromiseSummary[]>([])
   const [loading, setLoading] = useState(true)
 
   // 为选中的图片生成预览 URL，photos 变化或卸载时释放旧 URL，避免内存泄漏
@@ -43,26 +70,25 @@ export default function HousePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       setRecords([])
+      setContracts([])
+      setPromises([])
       setLoading(false)
       return
     }
 
-    const { data, error: loadError } = await supabase
-      .from('house_records')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    const [houseRes, contractsRes, promisesRes] = await Promise.all([
+      supabase.from('house_records').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('contract_checks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('promise_records').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    ])
 
-    if (loadError) {
-      console.error('读取房屋档案失败:', loadError)
-      setError('读取房屋档案失败:' + loadError.message)
-      setLoading(false)
-      return
-    }
+    if (houseRes.error) console.error('读取房屋档案失败:', houseRes.error)
+    if (contractsRes.error) console.error('读取合同体检失败:', contractsRes.error)
+    if (promisesRes.error) console.error('读取承诺记录失败:', promisesRes.error)
 
     // 私有桶里的照片需要临时签名链接才能显示
     const withUrls: HouseRecord[] = await Promise.all(
-      (data || []).map(async (row) => {
+      (houseRes.data || []).map(async (row) => {
         const paths: string[] = Array.isArray(row.photos) ? row.photos : []
         const signed = await Promise.all(
           paths.map((p) => supabase.storage.from('evidence').createSignedUrl(p, 3600))
@@ -75,6 +101,22 @@ export default function HousePage() {
     )
 
     setRecords(withUrls)
+    setContracts(
+      (contractsRes.data || []).map((row) => ({
+        id: row.id,
+        fileName: row.file_name,
+        riskLevel: row.risk_level as RiskLevel,
+        createdAt: row.created_at,
+      }))
+    )
+    setPromises(
+      (promisesRes.data || []).map((row) => ({
+        id: row.id,
+        personType: row.person_type,
+        content: row.content,
+        createdAt: row.created_at,
+      }))
+    )
     setLoading(false)
   }
 
@@ -279,6 +321,74 @@ export default function HousePage() {
                   {record.photoUrls.length > 0 && <PhotoGallery urls={record.photoUrls} title="房屋照片" />}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* 合同体检（只读汇总） */}
+        <div>
+          <h2 className="font-medium text-gray-900 mb-3">合同体检</h2>
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-6">加载中...</p>
+          ) : contracts.length === 0 ? (
+            <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
+              <p className="text-sm text-gray-400">暂无</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {contracts.map((c) => (
+                <Link key={c.id} href={`/records/contract-${c.id}`} className="block">
+                  <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center justify-between active:scale-[0.99] transition-transform">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                        <FileText size={14} className="text-indigo-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{c.fileName}</p>
+                        <p className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ml-2 ${riskLabel(c.riskLevel).color}`}>
+                      {riskLabel(c.riskLevel).text}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 承诺记录（只读汇总） */}
+        <div>
+          <h2 className="font-medium text-gray-900 mb-3">承诺记录</h2>
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-6">加载中...</p>
+          ) : promises.length === 0 ? (
+            <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
+              <p className="text-sm text-gray-400">暂无</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {promises.map((p) => {
+                const isAgent = p.personType === 'agent'
+                const Icon = isAgent ? User : Mic
+                return (
+                  <Link key={p.id} href={`/records/promise-${p.id}`} className="block">
+                    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm active:scale-[0.99] transition-transform">
+                      <div className="flex items-center gap-3 mb-1">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isAgent ? 'bg-orange-100' : 'bg-green-100'}`}>
+                          <Icon size={14} className={isAgent ? 'text-orange-600' : 'text-green-600'} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{personLabel(p.personType)}</p>
+                          <p className="text-xs text-gray-400">{new Date(p.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{p.content}</p>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>
