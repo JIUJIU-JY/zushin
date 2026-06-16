@@ -319,6 +319,11 @@ export default function CheckPage() {
             >
               {saved ? '✓ 已保存到我的记录' : saving ? '保存中...' : '保存到我的记录'}
             </button>
+            {saved && (
+              <Link href="/records" className="block text-center text-sm text-indigo-600 font-medium">
+                去看看我的记录 →
+              </Link>
+            )}
             <p className="text-xs text-gray-400 text-center pb-4">
               AI 分析仅供参考，不构成法律意见。如涉及重大纠纷，请咨询专业律师。
             </p>

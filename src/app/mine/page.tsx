@@ -42,9 +42,8 @@ export default async function MinePage() {
 
   return (
     <div className="pb-20 px-4">
-      <div className="flex items-center justify-between py-4">
+      <div className="flex items-center py-4">
         <h1 className="font-semibold text-gray-900">我的</h1>
-        <Settings size={20} className="text-gray-400" />
       </div>
 
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 mb-6 text-white flex items-center gap-4">
