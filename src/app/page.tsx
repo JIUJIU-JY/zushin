@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { Bell, User, FileText, Mic, Star, ChevronRight, Home } from 'lucide-react'
+import { Bell, User, FileText, Mic, Star, ChevronRight, Home, CalendarClock } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
+import { daysUntilDate, countdownText } from '@/lib/reminders'
 
 // 让首页每次都读最新数据，避免生产环境被静态缓存导致"新增了却不更新"
 export const dynamic = 'force-dynamic'
@@ -52,8 +53,45 @@ async function getRecentRecords(): Promise<RecentRecord[]> {
     .slice(0, 3)
 }
 
+type UpcomingReminder = {
+  id: string
+  title: string
+  remindDate: string
+  days: number
+}
+
+async function getUpcomingReminders(): Promise<UpcomingReminder[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('reminders')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('remind_date', { ascending: true })
+
+  if (error) {
+    console.error('读取提醒失败:', error)
+    return []
+  }
+
+  // 只显示已过期 + 未来 30 天内的提醒
+  return (data || [])
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      remindDate: row.remind_date,
+      days: daysUntilDate(row.remind_date),
+    }))
+    .filter((r) => r.days <= 30)
+}
+
 export default async function HomePage() {
-  const recentRecords = await getRecentRecords()
+  const [recentRecords, upcomingReminders] = await Promise.all([
+    getRecentRecords(),
+    getUpcomingReminders(),
+  ])
 
   return (
     <div className="pb-20 px-4">
@@ -78,6 +116,50 @@ export default async function HomePage() {
         <h2 className="text-lg font-bold mb-1">Hi，欢迎回来</h2>
         <p className="text-sm text-indigo-100">租房路上，让我们帮你避坑</p>
       </div>
+
+      {/* 近期提醒 */}
+      {upcomingReminders.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-gray-900">近期提醒</h3>
+            <Link href="/reminders" className="text-sm text-indigo-600">全部</Link>
+          </div>
+          <div className="space-y-2">
+            {upcomingReminders.map((r) => {
+              const overdue = r.days < 0
+              const soon = r.days >= 0 && r.days <= 7
+              const cardClass = overdue
+                ? 'bg-red-50 border-red-200'
+                : soon
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-white border-gray-100'
+              const countdownClass = overdue
+                ? 'text-red-600'
+                : soon
+                ? 'text-amber-600'
+                : 'text-gray-400'
+              return (
+                <Link key={r.id} href="/reminders" className="block">
+                  <div className={`border rounded-2xl p-3 flex items-center justify-between shadow-sm ${cardClass}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-white/70 flex items-center justify-center shrink-0">
+                        <CalendarClock size={14} className={countdownClass} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{r.title}</p>
+                        <p className="text-xs text-gray-400">{r.remindDate}</p>
+                      </div>
+                    </div>
+                    <span className={`text-sm font-medium shrink-0 ml-2 ${countdownClass}`}>
+                      {countdownText(r.days)}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 功能入口 */}
       <div className="space-y-3 mb-6">
@@ -120,6 +202,21 @@ export default async function HomePage() {
               <div>
                 <p className="font-semibold text-gray-900">房屋档案</p>
                 <p className="text-xs text-gray-500">拍下房屋现状，留作日后凭证</p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-gray-400" />
+          </div>
+        </Link>
+
+        <Link href="/reminders">
+          <div className="bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-100 rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center">
+                <CalendarClock size={20} className="text-rose-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">日期提醒</p>
+                <p className="text-xs text-gray-500">押金退还、合同到期，关键日期不错过</p>
               </div>
             </div>
             <ChevronRight size={18} className="text-gray-400" />
