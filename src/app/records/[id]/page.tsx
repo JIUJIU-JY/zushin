@@ -3,6 +3,7 @@ import { ArrowLeft, FileText, Mic, User, Shield, AlertTriangle } from 'lucide-re
 import { createClient } from '@/lib/supabase-server'
 import PhotoGallery from '@/components/photo-gallery'
 import ContractReportExport from '@/components/contract-report-export'
+import ContractReportView from '@/components/contract-report-view'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,7 @@ const riskBadge: Record<RiskLevel, string> = {
   medium: 'bg-orange-100 text-orange-600',
   low: 'bg-green-100 text-green-600',
 }
+
 
 async function getRecord(id: string) {
     const supabase = await createClient()
@@ -77,6 +79,16 @@ export default async function RecordDetailPage({
 }
 
 function ContractDetail({ row }: { row: any }) {
+  // 新格式：有结构化报告就用与体检页同款的结构化卡片渲染
+  if (row.report) {
+    return (
+      <div className="px-4">
+        <ContractReportView report={row.report} fileName={row.file_name} createdAt={row.created_at} />
+      </div>
+    )
+  }
+
+  // 旧格式：保持原来的展示，别让旧记录打不开
   const level: RiskLevel = row.risk_level
   const risks: any[] = Array.isArray(row.risks) ? row.risks : []
 

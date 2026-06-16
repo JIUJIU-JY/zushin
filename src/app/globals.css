@@ -24,3 +24,31 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 打印（导出 PDF）：只保留合同体检报告本身 */
+@media print {
+  /* 先隐藏所有内容，再单独显示报告区域 */
+  body * {
+    visibility: hidden;
+  }
+  #contract-report,
+  #contract-report * {
+    visibility: visible;
+  }
+  #contract-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 16px;
+  }
+  /* 顶部导航、底栏、各种操作按钮等彻底移除 */
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+  /* 避免风险卡片被分页截断 */
+  .report-card {
+    break-inside: avoid;
+  }
+}

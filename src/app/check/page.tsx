@@ -2,8 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Upload, FileText, X, Shield, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Upload, FileText, X } from 'lucide-react'
 import { ContractReport } from '@/lib/types'
+import { supabase } from '@/lib/supabase'
+import ContractReportView from '@/components/contract-report-view'
+
+// 新报告的中文综合风险转成库里 risk_level 用的英文，列表页/旧详情页才能正常识别
+const overallRiskToLevel = (r: string) => (r === '高' ? 'high' : r === '中' ? 'medium' : 'low')
 
 async function extractPdfText(file: File): Promise<string> {
   const pdfjsLib = await import('pdfjs-dist')
@@ -40,6 +45,8 @@ export default function CheckPage() {
   const [report, setReport] = useState<ContractReport | null>(null)
   const [error, setError] = useState('')
   const [extracting, setExtracting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -91,6 +98,7 @@ export default function CheckPage() {
     setError('')
     setAnalyzing(true)
     setReport(null)
+    setSaved(false)
 
     try {
       const res = await fetch('/api/analyze-contract', {
@@ -114,24 +122,32 @@ export default function CheckPage() {
     }
   }
 
-  // 综合风险徽章配色（入参为中文"高/中/低"）
-  const riskStyle = (level: string) => {
-    if (level === '高') return 'bg-red-50 border-red-200 text-red-600'
-    if (level === '中') return 'bg-amber-50 border-amber-200 text-amber-600'
-    return 'bg-green-50 border-green-200 text-green-600'
-  }
+  async function handleSaveResult() {
+    if (!report) return
+    setSaving(true)
 
-  // findings 卡片里小标签的配色
-  const riskTagStyle = (level: string) => {
-    if (level === '高') return 'bg-red-100 text-red-600'
-    if (level === '中') return 'bg-amber-100 text-amber-600'
-    return 'bg-green-100 text-green-600'
-  }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSaving(false)
+      setError('请先登录再保存')
+      return
+    }
 
-  const riskIconColor = (level: string) => {
-    if (level === '高') return 'text-red-500'
-    if (level === '中') return 'text-amber-500'
-    return 'text-green-500'
+    const { error: saveError } = await supabase.from('contract_checks').insert({
+      file_name: file?.name || '合同文本',
+      risk_level: overallRiskToLevel(report.overallRisk),
+      summary: report.summary,
+      report: report,
+      user_id: user.id,
+    })
+
+    setSaving(false)
+    if (saveError) {
+      console.error('保存失败:', saveError)
+      setError('保存失败:' + saveError.message)
+      return
+    }
+    setSaved(true)
   }
 
   return (
@@ -214,90 +230,27 @@ export default function CheckPage() {
         {/* 分析结果 */}
         {report && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium text-gray-900">体检结果</h2>
-              <span className="text-xs text-gray-400">
-                体检时间：{new Date().toLocaleString()}
-              </span>
+            <ContractReportView report={report} fileName={file?.name} />
+
+            {/* 保存到我的记录（屏幕显示，打印时隐藏） */}
+            <div className="no-print space-y-4">
+              <button
+                onClick={handleSaveResult}
+                disabled={saving || saved}
+                className={`w-full py-3 rounded-2xl font-medium text-sm border ${
+                  saved
+                    ? 'border-green-200 bg-green-50 text-green-600'
+                    : 'border-indigo-200 text-indigo-600'
+                }`}
+              >
+                {saved ? '✓ 已保存到我的记录' : saving ? '保存中...' : '保存到我的记录'}
+              </button>
+              {saved && (
+                <Link href="/records" className="block text-center text-sm text-indigo-600 font-medium pb-4">
+                  去看看记录 →
+                </Link>
+              )}
             </div>
-
-            {/* 综合风险徽章 */}
-            <div className={`border rounded-2xl p-4 flex items-center justify-between ${riskStyle(report.overallRisk)}`}>
-              <div>
-                <p className="font-semibold mb-1">综合风险：{report.overallRisk}风险</p>
-                <p className="text-sm">{report.summary}</p>
-              </div>
-              <Shield size={28} />
-            </div>
-
-            {/* 风险发现卡片 */}
-            {report.findings && report.findings.length > 0 ? (
-              <div>
-                <h3 className="font-medium text-gray-900 mb-3">风险发现（{report.findings.length}）</h3>
-                <div className="space-y-2">
-                  {report.findings.map((f, i) => (
-                    <div key={i} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle size={14} className={riskIconColor(f.riskLevel)} />
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{f.category}</span>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${riskTagStyle(f.riskLevel)}`}>
-                          {f.riskLevel}风险
-                        </span>
-                      </div>
-
-                      {f.originalText && (
-                        <blockquote className="border-l-2 border-gray-300 bg-gray-50 text-gray-600 italic text-xs rounded-r-lg px-3 py-2 mb-2">
-                          “{f.originalText}”
-                        </blockquote>
-                      )}
-
-                      <p className="text-xs text-gray-500 mb-1">{f.explanation}</p>
-
-                      {f.suggestion && (
-                        <p className="text-xs text-indigo-500 bg-indigo-50 rounded-lg px-2 py-1.5 mt-2">
-                          💡 {f.suggestion}
-                        </p>
-                      )}
-
-                      {f.confidence === '低' && (
-                        <p className="text-xs text-amber-600 mt-2">⚠️ AI 对这条不太确定，建议人工核对</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-2">未发现明显风险点（也可能这段文本并不是租房合同）。</p>
-            )}
-
-            {/* 缺失的保护条款 */}
-            {report.missingClauses && report.missingClauses.length > 0 && (
-              <div>
-                <h3 className="font-medium text-gray-900 mb-3">合同里缺失的保护条款</h3>
-                <div className="space-y-2">
-                  {report.missingClauses.map((m, i) => (
-                    <div key={i} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-                      <p className="text-sm font-medium text-gray-900 mb-1">{m.topic}</p>
-                      <p className="text-xs text-gray-500">{m.note}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 保存功能升级中（暂禁用） */}
-            <button
-              disabled
-              className="w-full py-3 rounded-2xl font-medium text-sm border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-            >
-              保存功能升级中
-            </button>
-
-            <p className="text-xs text-gray-400 text-center pb-4">
-              本报告由 AI 生成，仅供参考，不构成法律意见。涉及重大权益时请咨询专业律师。
-            </p>
           </div>
         )}
       </div>
