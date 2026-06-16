@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft, FileText, Mic, User, Shield, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
+import PhotoGallery from '@/components/photo-gallery'
 
 export const dynamic = 'force-dynamic'
 
@@ -138,13 +139,26 @@ function ContractDetail({ row }: { row: any }) {
   )
 }
 
-function PromiseDetail({ row }: { row: any }) {
+async function PromiseDetail({ row }: { row: any }) {
   const tags: string[] = row.tags ? row.tags.split(',').filter(Boolean) : []
   const isAgent = row.person_type === 'agent'
   const personLabel = row.person_type === 'landlord' ? '房东承诺' : isAgent ? '中介沟通' : '其他记录'
   const Icon = isAgent ? User : Mic
   const iconBg = isAgent ? 'bg-orange-100' : 'bg-green-100'
   const iconColor = isAgent ? 'text-orange-600' : 'text-green-600'
+
+  // 私有桶里的证据图片需要临时签名链接才能显示
+  const photoPaths: string[] = Array.isArray(row.photos) ? row.photos : []
+  let photoUrls: string[] = []
+  if (photoPaths.length > 0) {
+    const supabase = await createClient()
+    const signed = await Promise.all(
+      photoPaths.map((path) => supabase.storage.from('evidence').createSignedUrl(path, 3600))
+    )
+    photoUrls = signed
+      .map((s) => s.data?.signedUrl)
+      .filter((url): url is string => Boolean(url))
+  }
 
   return (
     <div className="px-4 space-y-4">
@@ -172,6 +186,8 @@ function PromiseDetail({ row }: { row: any }) {
           ))}
         </div>
       )}
+
+      {photoUrls.length > 0 && <PhotoGallery urls={photoUrls} />}
     </div>
   )
 }
