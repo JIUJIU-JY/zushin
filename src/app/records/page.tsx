@@ -236,7 +236,9 @@ export default function RecordsPage() {
           <ArrowLeft size={20} className="text-gray-600" />
         </Link>
         <h1 className="font-semibold text-gray-900">我的记录</h1>
-        <div className="w-5" />
+        <Link href="/promise" className="flex items-center gap-1 text-sm text-indigo-600 font-medium">
+          <Plus size={16} /> 新增记录
+        </Link>
       </div>
 
       {/* 筛选 Tab */}
@@ -436,12 +438,6 @@ export default function RecordsPage() {
           })}
       </div>
 
-      {/* 悬浮新增按钮 */}
-      <Link href="/promise">
-        <button className="fixed bottom-20 right-6 w-12 h-12 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center z-40">
-          <Plus size={20} />
-        </button>
-      </Link>
 
       {/* 筛选面板 */}
       {showFilter && (
