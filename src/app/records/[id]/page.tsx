@@ -5,6 +5,7 @@ import PhotoGallery from '@/components/photo-gallery'
 import ContractReportExport from '@/components/contract-report-export'
 import ContractReportView from '@/components/contract-report-view'
 import PromiseStatusEditor from '@/components/promise-status-editor'
+import PrintButton from '@/components/print-button'
 import { personTypeToRole, statusBadge } from '@/lib/promise-meta'
 
 export const dynamic = 'force-dynamic'
@@ -190,7 +191,13 @@ async function PromiseDetail({ row }: { row: any }) {
   }
 
   return (
-    <div className="px-4 space-y-4">
+    <div id="promise-detail" className="px-4 space-y-4">
+      {/* 仅导出 PDF 时显示的正式抬头 */}
+      <div className="print-only mb-2 border-b border-gray-200 pb-2">
+        <p className="font-semibold text-gray-900">租信 · 承诺记录</p>
+        <p className="text-xs text-gray-500">记录时间：{new Date(row.created_at).toLocaleString()}</p>
+      </div>
+
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center shrink-0`}>
@@ -201,25 +208,30 @@ async function PromiseDetail({ row }: { row: any }) {
             <p className="text-xs text-gray-400">记录于 {new Date(row.created_at).toLocaleString()}</p>
           </div>
         </div>
-        <Link
-          href={`/promise?id=${row.id}`}
-          className="shrink-0 flex items-center gap-1 text-sm text-indigo-600 font-medium border border-indigo-200 rounded-full px-3 py-1.5"
-        >
-          <Pencil size={14} /> 编辑
-        </Link>
+        <div className="shrink-0 flex items-center gap-2 no-print">
+          <PrintButton />
+          <Link
+            href={`/promise?id=${row.id}`}
+            className="flex items-center gap-1 text-sm text-indigo-600 font-medium border border-indigo-200 rounded-full px-3 py-1.5"
+          >
+            <Pencil size={14} /> 编辑
+          </Link>
+        </div>
       </div>
 
       {/* 承诺状态（可直接切换） */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+      <div className="report-card bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-medium text-gray-900">承诺状态</p>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(status)}`}>{status}</span>
         </div>
-        <PromiseStatusEditor recordId={row.id} initialStatus={status} />
+        <div className="no-print">
+          <PromiseStatusEditor recordId={row.id} initialStatus={status} />
+        </div>
       </div>
 
       {/* 基本信息 */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm divide-y divide-gray-50">
+      <div className="report-card bg-white border border-gray-100 rounded-2xl p-4 shadow-sm divide-y divide-gray-50">
         <div className="flex items-center justify-between py-2">
           <span className="text-xs text-gray-400">对方身份</span>
           <span className="text-sm text-gray-800">{role}</span>
@@ -238,13 +250,13 @@ async function PromiseDetail({ row }: { row: any }) {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+      <div className="report-card bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
         <p className="text-xs text-gray-400 mb-2">记录内容</p>
         <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{row.content}</p>
       </div>
 
       {row.note && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+        <div className="report-card bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
           <p className="text-xs text-gray-400 mb-2">备注</p>
           <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{row.note}</p>
         </div>

@@ -25,17 +25,25 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* 打印（导出 PDF）：只保留合同体检报告本身 */
+/* 只在打印（导出 PDF）时显示的元素 */
+.print-only {
+  display: none;
+}
+
+/* 打印（导出 PDF）：只保留报告 / 承诺记录本身 */
 @media print {
-  /* 先隐藏所有内容，再单独显示报告区域 */
+  /* 先隐藏所有内容，再单独显示要导出的区域 */
   body * {
     visibility: hidden;
   }
   #contract-report,
-  #contract-report * {
+  #contract-report *,
+  #promise-detail,
+  #promise-detail * {
     visibility: visible;
   }
-  #contract-report {
+  #contract-report,
+  #promise-detail {
     position: absolute;
     left: 0;
     top: 0;
@@ -47,8 +55,13 @@ body {
   .no-print * {
     display: none !important;
   }
-  /* 避免风险卡片被分页截断 */
-  .report-card {
+  /* 仅打印可见的元素（如导出抬头） */
+  .print-only {
+    display: block !important;
+  }
+  /* 避免卡片 / 证据照片被分页截断 */
+  .report-card,
+  #promise-detail img {
     break-inside: avoid;
   }
 }
