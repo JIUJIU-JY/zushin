@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Lock, ImagePlus, X } from 'lucide-react'
-import { uploadEvidencePhotos } from '@/lib/upload-evidence'
+import { uploadEvidencePhotos, uploadAudio } from '@/lib/upload-evidence'
 import { CHANNELS, ROLES, STATUSES, roleToPersonType, personTypeToRole } from '@/lib/promise-meta'
+import AudioRecorder, { AudioChange } from '@/components/audio-recorder'
 
 const TAGS = ['押金', '退租', '维修', '租金', '费用', '合同', '其他']
 const MAX_PHOTOS = 9
@@ -35,6 +36,12 @@ export default function PromisePage() {
   const [contact, setContact] = useState('')
   const [status, setStatus] = useState<string>('未履行')
   const [promisedAt, setPromisedAt] = useState('')
+
+  // 语音附件
+  const [audioState, setAudioState] = useState<AudioChange | null>(null)
+  const [existingAudioPath, setExistingAudioPath] = useState<string | null>(null)
+  const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null)
+  const [audioKey, setAudioKey] = useState(0) // 保存成功后重置录音组件用
 
   // 编辑模式
   const [editId, setEditId] = useState<string | null>(null)
@@ -69,6 +76,14 @@ export default function PromisePage() {
     setContact(data.counterparty_contact || '')
     setStatus(data.status || '未履行')
     setPromisedAt(data.promised_at ? toLocalInput(new Date(data.promised_at)) : toLocalInput(new Date()))
+
+    // 已存的音频：记下路径并签出临时链接供试听
+    if (data.audio_url) {
+      setExistingAudioPath(data.audio_url)
+      const { data: signed } = await supabase.storage
+        .from('evidence').createSignedUrl(data.audio_url, 3600)
+      setExistingAudioUrl(signed?.signedUrl ?? null)
+    }
   }
 
   // 为选中的图片生成预览 URL，photos 变化或卸载时释放旧 URL，避免内存泄漏
@@ -112,8 +127,10 @@ export default function PromisePage() {
   }
 
   async function handleSave() {
-    if (!content.trim()) {
-      setToast('请输入承诺内容')
+    // 语音模式可只录音不填文字；文字模式需有内容。两者都没有时拦下。
+    const keepingAudio = audioState?.kind === 'new' || (!audioState && !!existingAudioPath)
+    if (!content.trim() && !keepingAudio) {
+      setToast('请输入承诺内容或录制语音')
       setTimeout(() => setToast(''), 2000)
       return
     }
@@ -124,6 +141,23 @@ export default function PromisePage() {
     if (!user) {
       setSaving(false)
       setError('请先登录再保存')
+      return
+    }
+
+    // 处理语音附件：新增/替换则上传新音频并删旧；删除则清空；不变则保留
+    let audioPath: string | null = existingAudioPath
+    try {
+      if (audioState?.kind === 'new') {
+        audioPath = await uploadAudio(audioState.blob, user.id, audioState.ext)
+        if (existingAudioPath) await supabase.storage.from('evidence').remove([existingAudioPath])
+      } else if (audioState?.kind === 'removed') {
+        if (existingAudioPath) await supabase.storage.from('evidence').remove([existingAudioPath])
+        audioPath = null
+      }
+    } catch (err) {
+      setSaving(false)
+      console.error(err)
+      setError(err instanceof Error ? err.message : '音频上传失败')
       return
     }
 
@@ -139,6 +173,7 @@ export default function PromisePage() {
       input_type: inputType,
       tags: selectedTags.join(','),
       note: note,
+      audio_url: audioPath,
     }
 
     if (isEdit) {
@@ -184,6 +219,10 @@ export default function PromisePage() {
     setNote('')
     setContact('')
     setPhotos([])
+    setAudioState(null)
+    setExistingAudioPath(null)
+    setExistingAudioUrl(null)
+    setAudioKey((k) => k + 1) // 重置录音组件
     setTimeout(() => setToast(''), 2000)
   }
 
@@ -308,9 +347,7 @@ export default function PromisePage() {
               <span className="absolute bottom-2 right-3 text-xs text-gray-400">{content.length}/500</span>
             </div>
           ) : (
-            <div className="border border-gray-200 rounded-2xl p-8 text-center bg-gray-50">
-              <p className="text-gray-400 text-sm">语音输入功能即将上线</p>
-            </div>
+            <AudioRecorder key={audioKey} existingUrl={existingAudioUrl} onChange={setAudioState} />
           )}
         </div>
 

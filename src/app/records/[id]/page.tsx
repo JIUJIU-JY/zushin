@@ -177,17 +177,24 @@ async function PromiseDetail({ row }: { row: any }) {
   const status: string = row.status || '未履行'
   const promisedText = row.promised_at ? new Date(row.promised_at).toLocaleString() : '—'
 
-  // 私有桶里的证据图片需要临时签名链接才能显示
+  // 私有桶里的证据图片/录音需要临时签名链接才能访问
   const photoPaths: string[] = Array.isArray(row.photos) ? row.photos : []
   let photoUrls: string[] = []
-  if (photoPaths.length > 0) {
+  let audioUrl: string | null = null
+  if (photoPaths.length > 0 || row.audio_url) {
     const supabase = await createClient()
-    const signed = await Promise.all(
-      photoPaths.map((path) => supabase.storage.from('evidence').createSignedUrl(path, 3600))
-    )
-    photoUrls = signed
-      .map((s) => s.data?.signedUrl)
-      .filter((url): url is string => Boolean(url))
+    if (photoPaths.length > 0) {
+      const signed = await Promise.all(
+        photoPaths.map((path) => supabase.storage.from('evidence').createSignedUrl(path, 3600))
+      )
+      photoUrls = signed
+        .map((s) => s.data?.signedUrl)
+        .filter((url): url is string => Boolean(url))
+    }
+    if (row.audio_url) {
+      const { data } = await supabase.storage.from('evidence').createSignedUrl(row.audio_url, 3600)
+      audioUrl = data?.signedUrl ?? null
+    }
   }
 
   return (
@@ -259,6 +266,16 @@ async function PromiseDetail({ row }: { row: any }) {
         <div className="report-card bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
           <p className="text-xs text-gray-400 mb-2">备注</p>
           <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{row.note}</p>
+        </div>
+      )}
+
+      {/* 录音证据 */}
+      {audioUrl && (
+        <div className="report-card bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <p className="text-xs text-gray-400 mb-2">录音证据</p>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <audio controls src={audioUrl} className="w-full no-print" />
+          <p className="print-only text-sm text-gray-600">本记录包含一段录音证据。</p>
         </div>
       )}
 

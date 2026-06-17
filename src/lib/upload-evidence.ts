@@ -35,3 +35,19 @@ export async function uploadEvidencePhotos(files: File[], userId: string): Promi
 
   return paths
 }
+
+/**
+ * 上传一段音频（录音或音频文件）到 evidence 桶，返回存储路径。
+ * 与照片放同一个 bucket、同样的 `${userId}/${uuid}.${ext}` 形式。
+ */
+export async function uploadAudio(file: Blob, userId: string, ext: string): Promise<string> {
+  const safeExt = ext || 'webm'
+  const path = `${userId}/${crypto.randomUUID()}.${safeExt}`
+  const { error } = await supabase.storage.from('evidence').upload(path, file, {
+    contentType: file.type || undefined,
+  })
+  if (error) {
+    throw new Error('音频上传失败:' + error.message)
+  }
+  return path
+}
