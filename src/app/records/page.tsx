@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, SlidersHorizontal, Star, MoreHorizontal,
-  Plus, FileText, Mic, User, X, Inbox,Trash2
+  Plus, FileText, Mic, User, X, Inbox, Trash2, ArrowUpDown, AlertCircle
 } from 'lucide-react'
 import { RecordItem, RecordType, RiskLevel } from '@/lib/types'
 import { supabase } from '@/lib/supabase'
@@ -29,6 +29,8 @@ export default function RecordsPage() {
   const [keyword, setKeyword] = useState('')
   const [records, setRecords] = useState<RecordItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const router = useRouter()
 
   // 筛选面板
@@ -39,6 +41,7 @@ export default function RecordsPage() {
   const [filterFavoriteOnly, setFilterFavoriteOnly] = useState(false)
   async function fetchRecords() {
     setLoading(true)
+    setLoadError(false)
 
     const [promisesRes, contractsRes] = await Promise.all([
       supabase.from('promise_records').select('*').order('created_at', { ascending: false }),
@@ -59,6 +62,7 @@ export default function RecordsPage() {
         description: row.content,
         tags,
         createdAt: new Date(row.created_at).toLocaleString(),
+        createdAtRaw: new Date(row.created_at).getTime(),
         isFavorite: row.is_favorite,
         status: row.status || '未履行',
         counterpartyRole: row.counterparty_role || personTypeToRole(row.person_type),
@@ -73,14 +77,17 @@ export default function RecordsPage() {
       description: row.summary,
       tags: [],
       createdAt: new Date(row.created_at).toLocaleString(),
+      createdAtRaw: new Date(row.created_at).getTime(),
       riskLevel: row.risk_level as RiskLevel,
       isFavorite: row.is_favorite ?? false,
     }))
 
+    // 合并后按原始时间戳统一排序（默认最新在前）
     const all = [...promiseItems, ...contractItems].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => b.createdAtRaw - a.createdAtRaw
     )
 
+    setLoadError(!!promisesRes.error || !!contractsRes.error)
     setRecords(all)
     setLoading(false)
   }
@@ -125,6 +132,11 @@ export default function RecordsPage() {
     const matchFavorite = !filterFavoriteOnly || r.isFavorite
     return matchTab && matchKeyword && matchRisk && matchTags && matchFavorite
   })
+
+  // 按所选顺序排序（最新 / 最旧在前）
+  const visible = [...filtered].sort((a, b) =>
+    sortOrder === 'newest' ? b.createdAtRaw - a.createdAtRaw : a.createdAtRaw - b.createdAtRaw
+  )
 
     async function toggleFavorite(id: string, e: React.MouseEvent) {
     e.stopPropagation()
@@ -271,6 +283,20 @@ export default function RecordsPage() {
         </div>
       </div>
 
+      {/* 排序切换（有记录时显示） */}
+      {!loading && !loadError && !isEmpty && (
+        <div className="px-4 mb-3 flex items-center justify-between">
+          <span className="text-xs text-gray-400">共 {visible.length} 条</span>
+          <button
+            onClick={() => setSortOrder((o) => (o === 'newest' ? 'oldest' : 'newest'))}
+            className="flex items-center gap-1 text-xs text-gray-500"
+          >
+            <ArrowUpDown size={14} />
+            {sortOrder === 'newest' ? '最新在前' : '最旧在前'}
+          </button>
+        </div>
+      )}
+
       {/* 记录列表 */}
       <div className="px-4 space-y-3">
         {loading && (
@@ -279,12 +305,39 @@ export default function RecordsPage() {
     </div>
     )}
 
-    {!loading && isEmpty && (
+    {/* 加载失败：无任何数据时整屏提示 + 重试 */}
+    {!loading && loadError && isEmpty && (
+          <div className="text-center py-16">
+            <AlertCircle size={40} className="text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-400 font-medium">加载失败</p>
+            <p className="text-xs text-gray-300 mt-1 px-8">
+              网络或服务出了点问题，请稍后再试
+            </p>
+            <button
+              onClick={fetchRecords}
+              className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-full text-sm font-medium"
+            >
+              重试
+            </button>
+          </div>
+        )}
+
+    {/* 加载失败但已有部分数据：顶部非阻断提示 */}
+    {!loading && loadError && !isEmpty && (
+          <div className="flex items-center justify-between gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+            <p className="text-xs text-red-500">部分记录加载失败</p>
+            <button onClick={fetchRecords} className="text-xs text-red-600 font-medium shrink-0">
+              重试
+            </button>
+          </div>
+        )}
+
+    {!loading && !loadError && isEmpty && (
           <div className="text-center py-16">
             <Inbox size={40} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 font-medium">暂无记录</p>
+            <p className="text-gray-400 font-medium">还没有记录</p>
             <p className="text-xs text-gray-300 mt-1 px-8">
-              你可以上传合同体检，或记录房东/中介的承诺
+              去做一次合同体检，或记一条承诺吧
             </p>
             <Link href="/promise">
               <button className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-full text-sm font-medium">
@@ -313,7 +366,7 @@ export default function RecordsPage() {
         )}
 
         {!loading && !isEmpty &&
-          filtered.map((record) => {
+          visible.map((record) => {
             const label = typeLabel(record.type)
             return (
               <div

@@ -62,6 +62,7 @@ export interface RecordItem {
   description: string
   tags: string[]
   createdAt: string
+  createdAtRaw: number // 原始时间戳(epoch ms)，用于可靠排序
   riskLevel?: RiskLevel
   isFavorite: boolean
   // 承诺记录附加信息（合同体检不用）
