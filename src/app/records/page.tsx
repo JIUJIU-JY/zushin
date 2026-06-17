@@ -9,6 +9,7 @@ import {
 import { RecordItem, RecordType, RiskLevel } from '@/lib/types'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { personTypeToRole, statusBadge } from '@/lib/promise-meta'
 
 const tabs = [
   { value: 'all', label: '全部' },
@@ -59,6 +60,9 @@ export default function RecordsPage() {
         tags,
         createdAt: new Date(row.created_at).toLocaleString(),
         isFavorite: row.is_favorite,
+        status: row.status || '未履行',
+        counterpartyRole: row.counterparty_role || personTypeToRole(row.person_type),
+        promisedAt: row.promised_at ? new Date(row.promised_at).toLocaleString() : '',
       }
     })
 
@@ -348,10 +352,21 @@ export default function RecordsPage() {
                 <p className="text-xs text-gray-500 line-clamp-2 mb-2 leading-relaxed">
                   {record.description}
                 </p>
+                {record.type !== 'contract_check' && (record.counterpartyRole || record.promisedAt) && (
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-2 flex-wrap">
+                    {record.counterpartyRole && <span>{record.counterpartyRole}</span>}
+                    {record.promisedAt && <span>· 承诺时间 {record.promisedAt}</span>}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${label.color}`}>
                     {label.text}
                   </span>
+                  {record.type !== 'contract_check' && record.status && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(record.status)}`}>
+                      {record.status}
+                    </span>
+                  )}
                   {record.riskLevel && (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${riskLabel(record.riskLevel).color}`}>
                       {riskLabel(record.riskLevel).text}

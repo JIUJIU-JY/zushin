@@ -64,4 +64,8 @@ export interface RecordItem {
   createdAt: string
   riskLevel?: RiskLevel
   isFavorite: boolean
+  // 承诺记录附加信息（合同体检不用）
+  status?: string
+  counterpartyRole?: string
+  promisedAt?: string
 }

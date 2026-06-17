@@ -2,15 +2,23 @@
 import { supabase } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, Lock, ImagePlus, X } from 'lucide-react'
 import { uploadEvidencePhotos } from '@/lib/upload-evidence'
+import { CHANNELS, ROLES, STATUSES, roleToPersonType, personTypeToRole } from '@/lib/promise-meta'
 
 const TAGS = ['押金', '退租', '维修', '租金', '费用', '合同', '其他']
 const MAX_PHOTOS = 9
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024
 
+// Date -> <input type="datetime-local"> 需要的本地字符串（YYYY-MM-DDTHH:mm）
+function toLocalInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function PromisePage() {
-  const [personType, setPersonType] = useState<'landlord' | 'agent' | 'other'>('landlord')
+  const router = useRouter()
   const [inputType, setInputType] = useState<'text' | 'voice'>('text')
   const [content, setContent] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -20,6 +28,48 @@ export default function PromisePage() {
   const [error, setError] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+
+  // 新增的核心字段
+  const [role, setRole] = useState<string>('房东')
+  const [channel, setChannel] = useState<string>('微信')
+  const [contact, setContact] = useState('')
+  const [status, setStatus] = useState<string>('未履行')
+  const [promisedAt, setPromisedAt] = useState('')
+
+  // 编辑模式
+  const [editId, setEditId] = useState<string | null>(null)
+  const isEdit = editId !== null
+
+  // 进入页面：默认承诺时间=当前；若带 ?id= 则进入编辑模式并预填
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('id')
+    if (!id) {
+      setPromisedAt(toLocalInput(new Date()))
+      return
+    }
+    loadForEdit(id)
+  }, [])
+
+  async function loadForEdit(id: string) {
+    const { data, error: loadError } = await supabase
+      .from('promise_records').select('*').eq('id', id).single()
+    if (loadError || !data) {
+      console.error('读取承诺记录失败:', loadError)
+      setError('读取这条记录失败，可能已被删除')
+      setPromisedAt(toLocalInput(new Date()))
+      return
+    }
+    setEditId(id)
+    setContent(data.content || '')
+    setInputType(data.input_type === 'voice' ? 'voice' : 'text')
+    setSelectedTags(data.tags ? data.tags.split(',').filter(Boolean) : [])
+    setNote(data.note || '')
+    setRole(data.counterparty_role || personTypeToRole(data.person_type))
+    setChannel(data.channel || '微信')
+    setContact(data.counterparty_contact || '')
+    setStatus(data.status || '未履行')
+    setPromisedAt(data.promised_at ? toLocalInput(new Date(data.promised_at)) : toLocalInput(new Date()))
+  }
 
   // 为选中的图片生成预览 URL，photos 变化或卸载时释放旧 URL，避免内存泄漏
   useEffect(() => {
@@ -61,62 +111,81 @@ export default function PromisePage() {
     setPhotos((prev) => prev.filter((_, i) => i !== index))
   }
 
- async function handleSave() {
-  if (!content.trim()) {
-    setToast('请输入承诺内容')
+  async function handleSave() {
+    if (!content.trim()) {
+      setToast('请输入承诺内容')
+      setTimeout(() => setToast(''), 2000)
+      return
+    }
+    setError('')
+    setSaving(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSaving(false)
+      setError('请先登录再保存')
+      return
+    }
+
+    // 核心字段（编辑/新增共用）
+    const core = {
+      person_type: roleToPersonType(role),
+      counterparty_role: role,
+      channel: channel,
+      counterparty_contact: contact,
+      status: status,
+      promised_at: promisedAt ? new Date(promisedAt).toISOString() : null,
+      content: content,
+      input_type: inputType,
+      tags: selectedTags.join(','),
+      note: note,
+    }
+
+    if (isEdit) {
+      // 编辑：不动 photos 列（附件编辑后面再做）
+      const { error: saveError } = await supabase
+        .from('promise_records').update(core).eq('id', editId)
+      setSaving(false)
+      if (saveError) {
+        console.error('保存失败:', saveError)
+        setError('保存失败:' + saveError.message)
+        return
+      }
+      router.push(`/records/promise-${editId}`)
+      return
+    }
+
+    // 新增：先压缩上传证据图片
+    let photoPaths: string[] = []
+    try {
+      photoPaths = await uploadEvidencePhotos(photos, user.id)
+    } catch (err) {
+      setSaving(false)
+      console.error(err)
+      setError(err instanceof Error ? err.message : '图片上传失败')
+      return
+    }
+
+    const { error: saveError } = await supabase.from('promise_records').insert({
+      ...core,
+      is_favorite: false,
+      user_id: user.id,
+      photos: photoPaths,
+    })
+    setSaving(false)
+    if (saveError) {
+      console.error('保存失败:', saveError)
+      setError('保存失败:' + saveError.message)
+      return
+    }
+    setToast('记录已保存')
+    setContent('')
+    setSelectedTags([])
+    setNote('')
+    setContact('')
+    setPhotos([])
     setTimeout(() => setToast(''), 2000)
-    return
   }
-  setError('')
-  setSaving(true)
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    setSaving(false)
-    setError('请先登录再保存')
-    return
-  }
-
-  // 压缩并上传证据图片，收集成功上传的路径
-  let photoPaths: string[] = []
-  try {
-    photoPaths = await uploadEvidencePhotos(photos, user.id)
-  } catch (err) {
-    setSaving(false)
-    console.error(err)
-    setError(err instanceof Error ? err.message : '图片上传失败')
-    return
-  }
-
-  const { error: saveError } = await supabase.from('promise_records').insert({
-    person_type: personType,
-    content: content,
-    input_type: inputType,
-    tags: selectedTags.join(','),
-    note: note,
-    is_favorite: false,
-    user_id: user.id,
-    photos: photoPaths,
-  })
-  setSaving(false)
-  if (saveError) {
-    console.error('保存失败:', saveError)
-    setError('保存失败:' + saveError.message)
-    return
-  }
-  setToast('记录已保存')
-  setContent('')
-  setSelectedTags([])
-  setNote('')
-  setPhotos([])
-  setTimeout(() => setToast(''), 2000)
-}
-
-  const personTypes = [
-    { value: 'landlord', label: '房东' },
-    { value: 'agent', label: '中介' },
-    { value: 'other', label: '其他' },
-  ] as const
 
   return (
     <div className="pb-20">
@@ -132,31 +201,82 @@ export default function PromisePage() {
         <Link href="/records">
           <ArrowLeft size={20} className="text-gray-600" />
         </Link>
-        <h1 className="font-semibold text-gray-900">记录承诺</h1>
+        <h1 className="font-semibold text-gray-900">{isEdit ? '编辑承诺' : '记录承诺'}</h1>
         <button onClick={handleSave} className="text-sm text-indigo-600 font-medium">
-          保存记录
+          {isEdit ? '保存' : '保存记录'}
         </button>
       </div>
 
       <div className="px-4 space-y-5">
         {/* 对方身份 */}
         <div>
-          <h2 className="font-medium text-gray-900 mb-3">对方是谁？</h2>
-          <div className="flex gap-3">
-            {personTypes.map(({ value, label }) => (
+          <h2 className="font-medium text-gray-900 mb-3">对方身份</h2>
+          <div className="grid grid-cols-4 gap-2">
+            {ROLES.map((r) => (
               <button
-                key={value}
-                onClick={() => setPersonType(value)}
-                className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${
-                  personType === value
+                key={r}
+                onClick={() => setRole(r)}
+                className={`py-2 rounded-xl border text-sm font-medium transition-all ${
+                  role === r
                     ? 'border-indigo-500 bg-indigo-50 text-indigo-600'
                     : 'border-gray-200 bg-white text-gray-500'
                 }`}
               >
-                {label}
+                {r}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 对方联系方式 */}
+        <div>
+          <h2 className="font-medium text-gray-900 mb-3">对方联系方式（选填）</h2>
+          <input
+            type="text"
+            className="w-full border border-gray-200 rounded-2xl p-3 text-sm bg-white"
+            placeholder="微信号 / 手机号等"
+            value={contact}
+            onChange={(e) => setContact(e.target.value.slice(0, 100))}
+          />
+        </div>
+
+        {/* 承诺方式 + 承诺时间 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <h2 className="font-medium text-gray-900 mb-3">承诺方式</h2>
+            <select
+              className="w-full border border-gray-200 rounded-2xl p-3 text-sm bg-white"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+            >
+              {CHANNELS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <h2 className="font-medium text-gray-900 mb-3">承诺状态</h2>
+            <select
+              className="w-full border border-gray-200 rounded-2xl p-3 text-sm bg-white"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* 承诺时间 */}
+        <div>
+          <h2 className="font-medium text-gray-900 mb-3">承诺时间</h2>
+          <input
+            type="datetime-local"
+            className="w-full border border-gray-200 rounded-2xl p-3 text-sm bg-white"
+            value={promisedAt}
+            onChange={(e) => setPromisedAt(e.target.value)}
+          />
         </div>
 
         {/* 承诺内容 */}
@@ -228,33 +348,38 @@ export default function PromisePage() {
           </div>
         </div>
 
-        {/* 证据照片 */}
-        <div>
-          <h2 className="font-medium text-gray-900 mb-3">证据照片（选填，最多 {MAX_PHOTOS} 张）</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {previews.map((url, i) => (
-              <div key={url} className="relative aspect-square">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`证据照片 ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-gray-200" />
-                <button
-                  type="button"
-                  onClick={() => removePhoto(i)}
-                  className="absolute -top-1.5 -right-1.5 bg-gray-800 text-white rounded-full p-0.5 shadow"
-                  aria-label="删除这张照片"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-            {photos.length < MAX_PHOTOS && (
-              <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl text-gray-400 cursor-pointer bg-gray-50">
-                <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoChange} />
-                <ImagePlus size={20} />
-                <span className="text-xs mt-1">{photos.length}/{MAX_PHOTOS}</span>
-              </label>
-            )}
+        {/* 证据照片（仅新增模式；附件编辑后面再做） */}
+        {!isEdit && (
+          <div>
+            <h2 className="font-medium text-gray-900 mb-3">证据照片（选填，最多 {MAX_PHOTOS} 张）</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {previews.map((url, i) => (
+                <div key={url} className="relative aspect-square">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`证据照片 ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-gray-200" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    className="absolute -top-1.5 -right-1.5 bg-gray-800 text-white rounded-full p-0.5 shadow"
+                    aria-label="删除这张照片"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl text-gray-400 cursor-pointer bg-gray-50">
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoChange} />
+                  <ImagePlus size={20} />
+                  <span className="text-xs mt-1">{photos.length}/{MAX_PHOTOS}</span>
+                </label>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+        {isEdit && (
+          <p className="text-xs text-gray-400">证据照片的编辑即将支持，本次修改不会改动已有照片。</p>
+        )}
 
         {/* 错误提示 */}
         {error && (
@@ -267,7 +392,7 @@ export default function PromisePage() {
           disabled={saving}
           className="w-full py-3 rounded-2xl font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600"
         >
-          {saving ? '保存中...' : '保存记录'}
+          {saving ? '保存中...' : isEdit ? '保存修改' : '保存记录'}
         </button>
 
         {toast === '记录已保存' && (

@@ -1,9 +1,11 @@
 import Link from 'next/link'
-import { ArrowLeft, FileText, Mic, User, Shield, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, FileText, Mic, User, Shield, AlertTriangle, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import PhotoGallery from '@/components/photo-gallery'
 import ContractReportExport from '@/components/contract-report-export'
 import ContractReportView from '@/components/contract-report-view'
+import PromiseStatusEditor from '@/components/promise-status-editor'
+import { personTypeToRole, statusBadge } from '@/lib/promise-meta'
 
 export const dynamic = 'force-dynamic'
 
@@ -163,10 +165,16 @@ function ContractDetail({ row }: { row: any }) {
 async function PromiseDetail({ row }: { row: any }) {
   const tags: string[] = row.tags ? row.tags.split(',').filter(Boolean) : []
   const isAgent = row.person_type === 'agent'
-  const personLabel = row.person_type === 'landlord' ? '房东承诺' : isAgent ? '中介沟通' : '其他记录'
   const Icon = isAgent ? User : Mic
   const iconBg = isAgent ? 'bg-orange-100' : 'bg-green-100'
   const iconColor = isAgent ? 'text-orange-600' : 'text-green-600'
+
+  // 新字段（旧记录留空时做兜底/占位）
+  const role: string = row.counterparty_role || personTypeToRole(row.person_type)
+  const channel: string = row.channel || '—'
+  const contact: string = row.counterparty_contact || '—'
+  const status: string = row.status || '未履行'
+  const promisedText = row.promised_at ? new Date(row.promised_at).toLocaleString() : '—'
 
   // 私有桶里的证据图片需要临时签名链接才能显示
   const photoPaths: string[] = Array.isArray(row.photos) ? row.photos : []
@@ -183,13 +191,50 @@ async function PromiseDetail({ row }: { row: any }) {
 
   return (
     <div className="px-4 space-y-4">
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center`}>
-          <Icon size={18} className={iconColor} />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center shrink-0`}>
+            <Icon size={18} className={iconColor} />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-900 truncate">{role}的承诺</p>
+            <p className="text-xs text-gray-400">记录于 {new Date(row.created_at).toLocaleString()}</p>
+          </div>
         </div>
-        <div>
-          <p className="font-semibold text-gray-900">{personLabel}</p>
-          <p className="text-xs text-gray-400">{new Date(row.created_at).toLocaleString()}</p>
+        <Link
+          href={`/promise?id=${row.id}`}
+          className="shrink-0 flex items-center gap-1 text-sm text-indigo-600 font-medium border border-indigo-200 rounded-full px-3 py-1.5"
+        >
+          <Pencil size={14} /> 编辑
+        </Link>
+      </div>
+
+      {/* 承诺状态（可直接切换） */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-gray-900">承诺状态</p>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(status)}`}>{status}</span>
+        </div>
+        <PromiseStatusEditor recordId={row.id} initialStatus={status} />
+      </div>
+
+      {/* 基本信息 */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm divide-y divide-gray-50">
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs text-gray-400">对方身份</span>
+          <span className="text-sm text-gray-800">{role}</span>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs text-gray-400">承诺方式</span>
+          <span className="text-sm text-gray-800">{channel}</span>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs text-gray-400">承诺时间</span>
+          <span className="text-sm text-gray-800">{promisedText}</span>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs text-gray-400">对方联系方式</span>
+          <span className="text-sm text-gray-800">{contact}</span>
         </div>
       </div>
 
@@ -197,6 +242,13 @@ async function PromiseDetail({ row }: { row: any }) {
         <p className="text-xs text-gray-400 mb-2">记录内容</p>
         <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{row.content}</p>
       </div>
+
+      {row.note && (
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <p className="text-xs text-gray-400 mb-2">备注</p>
+          <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{row.note}</p>
+        </div>
+      )}
 
       {tags.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
