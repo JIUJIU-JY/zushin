@@ -104,10 +104,12 @@ export default async function HomePage() {
           <span className="text-lg font-bold text-gray-900">租信</span>
         </div>
         <div className="flex items-center gap-3">
-          <Bell size={20} className="text-gray-500" />
-          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+          <Link href="/reminders" aria-label="日期提醒">
+            <Bell size={20} className="text-gray-500" />
+          </Link>
+          <Link href="/mine" aria-label="我的" className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
             <User size={16} className="text-indigo-600" />
-          </div>
+          </Link>
         </div>
       </div>
 

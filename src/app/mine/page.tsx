@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { User, Settings, Shield, FileText, HelpCircle, ChevronRight, LogIn, KeyRound, ScrollText, AlertTriangle } from 'lucide-react'
+import { User, Settings, Shield, FileText, HelpCircle, ChevronRight, LogIn, KeyRound, ScrollText, AlertTriangle, Database } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import LogoutButton from './LogoutButton'
 
@@ -35,6 +35,7 @@ export default async function MinePage() {
   const menuItems = [
     { icon: FileText, label: '我的合同', desc: '查看所有合同体检记录', href: '/records', soon: false },
     { icon: KeyRound, label: '修改密码', desc: '设置新的登录密码', href: '/settings/password', soon: false },
+    { icon: Database, label: '账号与数据', desc: '导出数据、注销账号', href: '/settings/account', soon: false },
     { icon: HelpCircle, label: '关于与帮助', desc: '产品介绍与常见问题', href: '/about', soon: false },
     { icon: Settings, label: '通用设置', desc: '语言、通知等设置', soon: true },
   ]
@@ -138,7 +139,6 @@ export default async function MinePage() {
         ))}
       </div>
 
-      <p className="text-center text-xs text-gray-300 mt-8">租信 v0.1 · 租房路上,不再一个人</p>
     </div>
   )
 }
