@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { User, Settings, Shield, FileText, HelpCircle, ChevronRight, LogIn, KeyRound } from 'lucide-react'
+import { User, Settings, Shield, FileText, HelpCircle, ChevronRight, LogIn, KeyRound, ScrollText, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import LogoutButton from './LogoutButton'
 
@@ -35,9 +35,14 @@ export default async function MinePage() {
   const menuItems = [
     { icon: FileText, label: '我的合同', desc: '查看所有合同体检记录', href: '/records', soon: false },
     { icon: KeyRound, label: '修改密码', desc: '设置新的登录密码', href: '/settings/password', soon: false },
-    { icon: Shield, label: '隐私说明', desc: '了解我们如何保护你的数据', href: '/privacy', soon: false },
     { icon: HelpCircle, label: '关于与帮助', desc: '产品介绍与常见问题', href: '/about', soon: false },
     { icon: Settings, label: '通用设置', desc: '语言、通知等设置', soon: true },
+  ]
+
+  const legalItems = [
+    { icon: Shield, label: '隐私政策', href: '/privacy' },
+    { icon: ScrollText, label: '用户协议', href: '/terms' },
+    { icon: AlertTriangle, label: 'AI 免责声明', href: '/disclaimer' },
   ]
 
   return (
@@ -109,6 +114,28 @@ export default async function MinePage() {
             <div key={label}>{row}</div>
           )
         })}
+      </div>
+
+      {/* 条款与声明 */}
+      <p className="text-xs text-gray-400 mt-6 mb-2 px-1">条款与声明</p>
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        {legalItems.map(({ icon: Icon, label, href }, index) => (
+          <Link key={href} href={href} className="block">
+            <div
+              className={`flex items-center justify-between p-4 ${
+                index !== legalItems.length - 1 ? 'border-b border-gray-50' : ''
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
+                  <Icon size={16} className="text-indigo-600" />
+                </div>
+                <p className="text-sm font-medium text-gray-900">{label}</p>
+              </div>
+              <ChevronRight size={16} className="text-gray-300" />
+            </div>
+          </Link>
+        ))}
       </div>
 
       <p className="text-center text-xs text-gray-300 mt-8">租信 v0.1 · 租房路上,不再一个人</p>

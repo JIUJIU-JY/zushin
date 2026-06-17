@@ -49,9 +49,7 @@ export default function LoginPage() {
         <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <span className="text-white text-2xl font-bold">租</span>
         </div>
-        <h1 className="text-xl font-bold text-gray-900">
-          {mode === 'login' ? '登录租信' : '注册租信'}
-        </h1>
+        <h1 className="text-xl font-bold text-gray-900">租信</h1>
         <p className="text-sm text-gray-400 mt-1">租房路上,不再一个人</p>
       </div>
 
@@ -91,6 +89,13 @@ export default function LoginPage() {
         {loading && <Loader2 size={18} className="animate-spin" />}
         {mode === 'login' ? '登录' : '注册并登录'}
       </button>
+
+      <p className="text-center text-xs text-gray-400 mt-3 leading-relaxed">
+        注册即表示同意
+        <Link href="/terms" className="text-indigo-600">《用户协议》</Link>
+        和
+        <Link href="/privacy" className="text-indigo-600">《隐私政策》</Link>
+      </p>
 
       <p className="text-center text-sm text-gray-400 mt-5">
         {mode === 'login' ? '还没有账号?' : '已经有账号了?'}

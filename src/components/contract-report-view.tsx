@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Shield, AlertTriangle, Printer } from 'lucide-react'
 import { ContractReport } from '@/lib/types'
 
@@ -117,6 +118,7 @@ export default function ContractReportView({
 
         <p className="text-xs text-gray-400 text-center pt-2">
           本报告由 AI 生成，仅供参考，不构成法律意见。涉及重大权益时请咨询专业律师。
+          <Link href="/disclaimer" className="text-indigo-500 ml-1 no-print">查看完整免责声明</Link>
         </p>
       </div>
     </div>

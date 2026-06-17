@@ -33,7 +33,13 @@ export async function proxy(request: NextRequest) {
     .some((c) => c.name.startsWith('sb-') && c.value)
 
   const path = request.nextUrl.pathname
-  const isPublic = path.startsWith('/login') || path.startsWith('/auth')
+  // 这些页面未登录也要能看（登录前需查看条款/隐私/免责声明）
+  const isPublic =
+    path.startsWith('/login') ||
+    path.startsWith('/auth') ||
+    path.startsWith('/privacy') ||
+    path.startsWith('/terms') ||
+    path.startsWith('/disclaimer')
 
   // 只有"既没读到用户、又根本没有登录凭据"时才弹去登录。
   // 带着 sb- cookie 却这次没读到(令牌刷新的瞬时抖动)→ 放行,避免误弹。

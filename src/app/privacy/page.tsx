@@ -1,54 +1,65 @@
-import Link from 'next/link'
-import { ArrowLeft, Shield } from 'lucide-react'
+import LegalPage, { LegalSection } from '@/components/legal-page'
 
-const sections = [
+const sections: LegalSection[] = [
   {
-    title: '你的数据存在哪里',
-    body: '你的所有记录都保存在 Supabase 提供的云端数据库中。我们依托其成熟的安全机制来存放数据，不会把你的内容用于与本产品无关的用途。',
+    title: '我们收集的信息',
+    bullets: [
+      '账号信息：你注册和登录时提供的邮箱等。',
+      '你主动提供的内容：你上传或输入的租房合同文本及文件、房东/中介的承诺记录、上传的照片与截图、房屋档案、备注等。',
+      '必要的技术信息：为保障服务运行产生的基本日志（如访问时间、错误信息）。',
+    ],
   },
   {
-    title: '只有你能看到自己的数据',
-    body: '每条记录都与你的账号绑定。你需要登录后才能访问，且只能看到属于自己的合同体检、承诺记录、房屋档案与提醒，其他用户无法查看。',
+    title: '我们如何使用信息',
+    bullets: [
+      '为你提供合同体检、承诺记录、房屋档案、日期提醒等功能。',
+      '合同体检需要将你提供的合同文本发送给第三方 AI 服务（DeepSeek）进行分析，以生成风险报告。',
+      '保障账号安全、排查故障、改进服务。',
+    ],
+    paras: ['我们不会将你的信息用于上述以外的目的，也不会向第三方出售你的个人信息。'],
   },
   {
-    title: '上传的照片私密存储',
-    body: '你上传的证据照片、房屋照片保存在私有存储空间，不会公开。只有在你本人查看时，才会生成有时效的临时链接用于显示。',
+    title: '信息的存储与第三方服务',
+    bullets: [
+      '你的数据存储在我们使用的云服务（Supabase）中。',
+      '合同体检会将合同内容传输给 DeepSeek 进行 AI 分析。',
+      '上述第三方服务有各自的隐私条款，建议你了解。',
+    ],
   },
   {
-    title: '删除',
-    body: '你可以随时在对应页面删除自己的记录。删除后该条数据将从你的列表中移除。',
+    title: '数据安全',
+    paras: ['我们采取加密传输、访问控制等措施保护你的数据，确保你只能访问自己的记录。但请理解，没有任何方式能保证绝对安全。'],
+  },
+  {
+    title: '你的权利',
+    paras: ['你可随时查看、导出或删除你的记录，也可注销账号。注销后，我们将删除与你账号关联的数据（法律要求保留的除外）。'],
+  },
+  {
+    title: '数据保留',
+    paras: ['我们仅在为你提供服务所必需的期间保留你的数据，直到你删除它们或注销账号。'],
+  },
+  {
+    title: '未成年人',
+    paras: ['本服务面向成年人。如你是未成年人，请在监护人指导下使用。'],
+  },
+  {
+    title: '政策更新',
+    paras: ['我们可能更新本政策，重大变更会在应用内告知。'],
+  },
+  {
+    title: '联系我们',
+    paras: ['如有疑问，请联系：3582168461@qq.com'],
   },
 ]
 
 export default function PrivacyPage() {
   return (
-    <div className="pb-20">
-      {/* 顶部导航 */}
-      <div className="flex items-center justify-between px-4 py-4">
-        <Link href="/mine">
-          <ArrowLeft size={20} className="text-gray-600" />
-        </Link>
-        <h1 className="font-semibold text-gray-900">隐私说明</h1>
-        <div className="w-5" />
-      </div>
-
-      <div className="px-4 space-y-4">
-        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
-          <Shield size={20} className="text-indigo-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-indigo-700 leading-relaxed">
-            我们重视你的隐私。以下用朴素的话说明租信如何存放和保护你的数据。
-          </p>
-        </div>
-
-        {sections.map((s) => (
-          <div key={s.title} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-            <p className="text-sm font-medium text-gray-900 mb-1">{s.title}</p>
-            <p className="text-xs text-gray-500 leading-relaxed">{s.body}</p>
-          </div>
-        ))}
-
-        <p className="text-center text-xs text-gray-300 pt-2">本说明为初版，后续会持续完善。</p>
-      </div>
-    </div>
+    <LegalPage
+      title="隐私政策"
+      effectiveDate="2026年6月17日"
+      intro="租信（以下简称“我们”）重视你的隐私。本政策说明我们收集哪些信息、如何使用和保护它们。使用租信即表示你同意本政策。"
+      sections={sections}
+      numbered
+    />
   )
 }
